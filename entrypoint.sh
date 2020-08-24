@@ -34,13 +34,11 @@ fi
 user=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" https://api.github.com/user | jq -r .login)
 # lowercase the username
 username="$(echo ${user} | tr "[:upper:]" "[:lower:]")"
-echo ${GITHUB_TOKEN} | docker login docker.pkg.github.com -u "${username}" --password-stdin 
+echo ${GITHUB_TOKEN} | docker login docker.pkg.github.com -u "${username}" --password-stdin
 
 # Set Local Variables, lowering case to make it work
-shortSHA=$(echo "${GITHUB_SHA}" | cut -c1-12)
 tag="$(echo ${GITHUB_REPOSITORY} | tr "[:upper:]" "[:lower:]")"
 BASE_NAME="docker.pkg.github.com/${tag}/${INPUT_IMAGE_NAME}"
-SHA_NAME="${BASE_NAME}:${shortSHA}"
 
 # Add Arguments For Caching
 BUILDPARAMS=""
@@ -53,22 +51,10 @@ if [ "${INPUT_CACHE}" == "true" ]; then
 fi
 
 # Build The Container
-if [ "${INPUT_TAG}" ]; then
-   CUSTOM_TAG="${BASE_NAME}:${INPUT_TAG}"
-   docker build $BUILDPARAMS -t ${SHA_NAME} -t ${BASE_NAME} -t ${CUSTOM_TAG} -f ${INPUT_DOCKERFILE_PATH} ${INPUT_BUILD_CONTEXT}
-   docker push ${CUSTOM_TAG}
-elif [ "${INPUT_BRANCH_TAG}" == "true" ]; then
-   CUSTOM_TAG="${BASE_NAME}:${GITHUB_REF##*/}"
-   docker build $BUILDPARAMS -t ${SHA_NAME} -t ${BASE_NAME} -t ${CUSTOM_TAG} -f ${INPUT_DOCKERFILE_PATH} ${INPUT_BUILD_CONTEXT}
-   docker push ${CUSTOM_TAG}
-else
-   docker build $BUILDPARAMS -t ${SHA_NAME} -t ${BASE_NAME} -f ${INPUT_DOCKERFILE_PATH} ${INPUT_BUILD_CONTEXT}
-fi
+ CUSTOM_TAG="${BASE_NAME}:${GITHUB_REF##*/}"
+ docker build $BUILDPARAMS  -t ${CUSTOM_TAG} -f ${INPUT_DOCKERFILE_PATH} ${INPUT_BUILD_CONTEXT}
+ docker push ${CUSTOM_TAG}
 
 
-# Push two versions, with and without the SHA
-docker push ${BASE_NAME}
-docker push ${SHA_NAME}
-
-echo "::set-output name=IMAGE_SHA_NAME::${SHA_NAME}"
+echo "::set-output name=IMAGE_SHA_NAME::${CUSTOM_TAG}"
 echo "::set-output name=IMAGE_URL::https://github.com/${GITHUB_REPOSITORY}/packages"
